@@ -36,16 +36,52 @@ static float EPSILON = 1e-6;
  * @param uniforms The renderer uniform containing camera, sampling, and scene information.
  * @return The color of the ray sample at the given uv coordinate.
  */
+
+public Optional<RayHitResult> rayTriangles(Ray ray, StructuredBuffer<Triangle> triangles, uint triangleCount)
+{
+
+    // find the normal of the plane defined by the triangle
+    Optional<RayHitResult> result;
+    float t_smallest = float.maxValue;
+    for (int i = 0; i < triangleCount; i++)
+    {
+        Optional<RayHitResult> hitResult = triangles[i].hit(ray);
+        if (hitResult.hasValue) {
+            if (hitResult.value.t < t_smallest)
+            {
+                t_smallest = hitResult.value.t;
+                result = hitResult;
+            }
+        }
+    }
+
+    if (t_smallest == float.maxValue)
+    {
+        return Optional<RayHitResult>();
+    }
+
+    return result;
+
+}
+
 public float4 sample(float2 uv, RendererUniform uniforms)
 {
     // We generate a camera ray for the given uv coordinate.
     // You need to implement the `generateRay` function in `Camera` struct in `src/cs248a_renderer/slang_shaders/model/camera.slang`
     Ray ray = uniforms.camera.generateRay(uv);
-    RayHitResult result;
 
-    // TODO: Student implementation starts here.
 
-    // TODO: Student implementation ends here.
+    
+    Optional<RayHitResult> ans = rayTriangles(ray, uniforms.triangleBuf, uniforms.triangleCount);
+
+    if (ans.hasValue == false) {
+        return float4(0.0, 0.0, 0.0, 1.0);
+
+    }
+
+    RayHitResult result = ans.value;
+
+    
 
     if (uniforms.renderDepth)
     {
@@ -78,7 +114,16 @@ public float4 render(uint2 tid, RendererUniform uniforms)
 
     // Basic version: no supersampling.
     float2 uv = (float2(tid) + 0.5) / float2(uniforms.camera.canvasSize);
-    return sample(uv, uniforms);
+    float4 final_color = float4(0.0, 0.0, 0.0, 0.0);
+    for (int i = 0; i < uniforms.sqrtSpp; i++)
+    {
+        for (int j = 0; j < uniforms.sqrtSpp; j++) {
+            uv = (float2(tid) + float2(float(i) + 0.5, float(j) + 0.5) / uniforms.sqrtSpp) / float2(uniforms.camera.canvasSize);
+
+            final_color += sample(uv, uniforms);
+        }
+    }
+    return final_color / pow(uniforms.sqrtSpp, 2);
 
     // TODO: Student implementation ends here.
 }
