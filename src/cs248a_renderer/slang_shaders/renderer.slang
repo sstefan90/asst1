@@ -64,24 +64,67 @@ public Optional<RayHitResult> rayTriangles(Ray ray, StructuredBuffer<Triangle> t
 
 }
 
+public Optional<RayHitResult> raySDFBufferMarch(Ray ray, SDFBuffer buffer) {
+
+    uint step = 0;
+    float distance = 10;
+    float3 current_point = ray.origin;
+    float t = 0;
+    while (step < MAX_STEPS) {
+        Tuple<float, float3> sample_res = buffer.sample(current_point);
+
+        distance = sample_res._0;
+        
+        if (distance < EPSILON) {
+            // we made it!
+            
+            RayHitResult result = { t, sample_res._1 };
+            return result;
+        }
+        t += distance;
+
+        if (t > ray.tRange[1]) {
+            // we're too far!
+            return Optional<RayHitResult>();
+        }
+
+        current_point += distance * ray.direction;
+        step += 1;
+    }
+
+    return Optional<RayHitResult>();
+}
+
+
 public float4 sample(float2 uv, RendererUniform uniforms)
 {
     // We generate a camera ray for the given uv coordinate.
     // You need to implement the `generateRay` function in `Camera` struct in `src/cs248a_renderer/slang_shaders/model/camera.slang`
     Ray ray = uniforms.camera.generateRay(uv);
+    float t_min = float.maxValue;
 
+    RayHitResult result;
 
-    
     Optional<RayHitResult> ans = rayTriangles(ray, uniforms.triangleBuf, uniforms.triangleCount);
+    Optional<RayHitResult> ans_sdf = raySDFBufferMarch(ray, uniforms.sdfBuf);
 
-    if (ans.hasValue == false) {
-        return float4(0.0, 0.0, 0.0, 1.0);
+    if (ans.hasValue && ans.value.t < t_min) {
+        result = ans.value;
+        t_min = ans.value.t;
 
     }
 
-    RayHitResult result = ans.value;
+    if (ans_sdf.hasValue && ans_sdf.value.t < t_min) {
+        result = ans_sdf.value;
+        t_min = ans_sdf.value.t;
+    }
 
-    
+
+
+    if (t_min == float.maxValue) {
+        // no hit, return black!
+        return float4(0.0, 0.0, 0.0, 1.0);
+    }
 
     if (uniforms.renderDepth)
     {
@@ -94,6 +137,10 @@ public float4 sample(float2 uv, RendererUniform uniforms)
         // Map normal from [-1, 1] to [0, 1] range for visualization
         return float4(result.normal * 0.5 + 0.5, 1.0);
     }
+
+    
+
+
 
     // Once you have the intersection result, use the following code to shade (calculate color) for the ray.
     // The shading function needs the camera ray and the intersection result.
@@ -110,7 +157,7 @@ public float4 sample(float2 uv, RendererUniform uniforms)
  */
 public float4 render(uint2 tid, RendererUniform uniforms)
 {
-    // TODO: Student implementation starts here.
+    
 
     // Basic version: no supersampling.
     float2 uv = (float2(tid) + 0.5) / float2(uniforms.camera.canvasSize);
@@ -125,5 +172,5 @@ public float4 render(uint2 tid, RendererUniform uniforms)
     }
     return final_color / pow(uniforms.sqrtSpp, 2);
 
-    // TODO: Student implementation ends here.
+
 }
