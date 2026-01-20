@@ -95,6 +95,21 @@ public Optional<RayHitResult> raySDFBufferMarch(Ray ray, SDFBuffer buffer) {
     return Optional<RayHitResult>();
 }
 
+public Optional<RayHitResult> rayVolume(Ray ray, StructuredBuffer<Volume> volumeBuf, SharedTexture3DBuffer<float4> volumeTexBuf, uint volumeCount) {
+
+    float t_min = float.maxValue;
+    Optional<RayHitResult> result = Optional<RayHitResult>();
+    for (uint i=0; i < volumeCount; i++) {
+        Optional<RayHitResult> candidate = volumeBuf[i].hit(ray, volumeTexBuf);
+        if (candidate.hasValue && candidate.value.t < t_min) {
+            result = candidate;
+            t_min = result.value.t;
+        }
+    }
+
+    return result;
+}
+
 
 public float4 sample(float2 uv, RendererUniform uniforms)
 {
@@ -107,20 +122,30 @@ public float4 sample(float2 uv, RendererUniform uniforms)
 
     Optional<RayHitResult> ans = rayTriangles(ray, uniforms.triangleBuf, uniforms.triangleCount);
     Optional<RayHitResult> ans_sdf = raySDFBufferMarch(ray, uniforms.sdfBuf);
+    Optional<RayHitResult> ans_vol = rayVolume(ray, uniforms.volumeBuf, uniforms.volumeTexBuf, uniforms.volumeCount);
+    
 
     if (ans.hasValue && ans.value.t < t_min) {
         result = ans.value;
         t_min = ans.value.t;
+ 
 
     }
 
     if (ans_sdf.hasValue && ans_sdf.value.t < t_min) {
         result = ans_sdf.value;
         t_min = ans_sdf.value.t;
+
+    }
+
+    if (ans_vol.hasValue && ans_vol.value.t < t_min) {
+        result = ans_vol.value;
+        t_min = ans_vol.value.t;
+
     }
 
 
-
+    
     if (t_min == float.maxValue) {
         // no hit, return black!
         return float4(0.0, 0.0, 0.0, 1.0);
