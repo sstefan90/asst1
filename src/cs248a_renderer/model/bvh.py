@@ -78,11 +78,7 @@ class BVH:
         self.reorder_primitives()
 
     def build_bvh(self):
-        """
-        Build BVH using breadth-first (level-order) traversal.
-        This ensures nodes at each depth level are created before going deeper,
-        resulting in a balanced tree even when max_nodes is limited.
-        """
+        
         if len(self.primitives) == 0:
             
             root = BVHNode(depth=0)
@@ -117,7 +113,7 @@ class BVH:
             
             best_split = self.find_best_split(prim_idxs, node.bound)
             
-            if not best_split:
+            if not  best_split:
                 continue 
             
 
@@ -135,7 +131,7 @@ class BVH:
             
 
             right_node = BVHNode(depth=node.depth + 1)
-            right_node.bound = self.compute_bounding_box(right_idxs)
+            right_node.bound =  self.compute_bounding_box(right_idxs)
             right_node_idx = len(self.nodes)
             self.nodes.append(right_node)
             self.temp_idxs.append(right_idxs)
@@ -149,15 +145,18 @@ class BVH:
             queue.append(right_node_idx)
             
             if self.on_progress:
-                self.on_progress(len(self.nodes), self.max_nodes)
+                self.on_progress(len(self.nodes),  self.max_nodes)
 
     def compute_bounding_box(self, prim_idxs: List[int]) -> BoundingBox3D:
+
         if len(prim_idxs) == 0:
             return BoundingBox3D()
         
         bound = self.primitives[prim_idxs[0]].bounding_box
+
         for prim_idx in prim_idxs[1:]:
             bound = BoundingBox3D.union(bound, self.primitives[prim_idx].bounding_box)
+
         return bound
 
     def find_best_split(self, prim_idxs, bound):
