@@ -47,11 +47,17 @@ public struct Volume
 
         float step = 0.0;
         float occupancy = 0.0;
-        float3 curr_point = ray.origin;
         float3 boxSize = this.bound.pMax - this.bound.pMin;
-        float maxDist = length(boxSize) * 2.0;
 
-        while (step < maxDist) {
+        float2 bounds = this.bound.hit(ray);
+        step = bounds[0];
+
+        if (bounds.x < 0) {
+            return Optional<RayHitResult>();
+        } 
+
+        float3 curr_point = ray.origin + step * ray.direction;
+        while (step < bounds[1]) {
 
             // test intersection
 

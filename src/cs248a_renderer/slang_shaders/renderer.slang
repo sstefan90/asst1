@@ -116,33 +116,47 @@ public float4 sample(float2 uv, RendererUniform uniforms)
     // We generate a camera ray for the given uv coordinate.
     // You need to implement the `generateRay` function in `Camera` struct in `src/cs248a_renderer/slang_shaders/model/camera.slang`
     Ray ray = uniforms.camera.generateRay(uv);
+    RayHitResult result;
     float t_min = float.maxValue;
 
-    RayHitResult result;
+    if (!uniforms.useBVH) {
+    
+        
+        Optional<RayHitResult> ans = rayTriangles(ray, uniforms.triangleBuf, uniforms.triangleCount);
+        Optional<RayHitResult> ans_sdf = raySDFBufferMarch(ray, uniforms.sdfBuf);
+        Optional<RayHitResult> ans_vol = rayVolume(ray, uniforms.volumeBuf, uniforms.volumeTexBuf, uniforms.volumeCount);
+        
 
-    Optional<RayHitResult> ans = rayTriangles(ray, uniforms.triangleBuf, uniforms.triangleCount);
-    Optional<RayHitResult> ans_sdf = raySDFBufferMarch(ray, uniforms.sdfBuf);
-    Optional<RayHitResult> ans_vol = rayVolume(ray, uniforms.volumeBuf, uniforms.volumeTexBuf, uniforms.volumeCount);
+        if (ans.hasValue && ans.value.t < t_min) {
+            result = ans.value;
+            t_min = ans.value.t;
+    
+        }
+
+        if (ans_sdf.hasValue && ans_sdf.value.t < t_min) {
+            result = ans_sdf.value;
+            t_min = ans_sdf.value.t;
+
+        }
+
+        if (ans_vol.hasValue && ans_vol.value.t < t_min) {
+            result = ans_vol.value;
+            t_min = ans_vol.value.t;
+        }
+    }
+    else {
+
+        Optional<uniforms.bvh.HitResult> res = uniforms.bvh.hit(ray);
+
+        if (res.hasValue && res.value.rayHitResult.t < t_min) {
+            result = res.value.rayHitResult;
+            t_min = res.value.rayHitResult.t;
+
+        }
+
+    }
     
 
-    if (ans.hasValue && ans.value.t < t_min) {
-        result = ans.value;
-        t_min = ans.value.t;
- 
-
-    }
-
-    if (ans_sdf.hasValue && ans_sdf.value.t < t_min) {
-        result = ans_sdf.value;
-        t_min = ans_sdf.value.t;
-
-    }
-
-    if (ans_vol.hasValue && ans_vol.value.t < t_min) {
-        result = ans_vol.value;
-        t_min = ans_vol.value.t;
-
-    }
 
 
     
@@ -150,7 +164,7 @@ public float4 sample(float2 uv, RendererUniform uniforms)
         // no hit, return black!
         return float4(0.0, 0.0, 0.0, 1.0);
     }
-
+    
     if (uniforms.renderDepth)
     {
         // Map depth to [0, 1] range for visualization
